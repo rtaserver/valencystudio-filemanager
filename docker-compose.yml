@@ -1,0 +1,39 @@
+# ── ValencyStudio File Manager — docker compose produksi ────────────────────
+#
+#   Menjalankan:  docker compose up -d --build     (build lokal)
+#                 docker compose pull && docker compose up -d   (image GHCR)
+#
+#   Arsitektur:
+#     [browser] → caddy (:80/:443) → app:3000 (Next.js)
+#                                 ↘ app:3003 (realtime socket.io, via
+#                                    query ?XTransformPort=3003)
+#
+#   State persisten:
+#     volume app-data    → /app/db       (SQLite)
+#     volume app-storage → /app/storage  (backend penyimpanan lokal)
+#
+name: valencystudio
+
+services:
+  app:
+    image: ${APP_IMAGE:-valencystudio:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    stop_grace_period: 30s
+    env_file:
+      - .env
+    environment:
+      # Path di dalam container — menimpa nilai apa pun dari .env host.
+      DATABASE_URL: file:/app/db/custom.db
+      REALTIME_DB_PATH: /app/db/custom.db
+      REALTIME_URL: http://127.0.0.1:3004
+      NODE_ENV: production
+    volumes:
+      - app-data:/app/db
+      - app-storage:/app/storage
+
+volumes:
+  app-data:
+  app-storage:

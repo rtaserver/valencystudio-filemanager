@@ -1,0 +1,136 @@
+# ── ValencyStudio — CD ───────────────────────────────────────────────────────
+# Push ke main / tag v* / manual:
+#   1. Build image Docker multi-stage
+#   2. Smoke test: boot container dengan volume kosong → /api harus ok:true
+#   3. Push ke GitHub Container Registry (ghcr.io)
+#   4. (Opsional) Deploy ke server produksi via SSH — aktifkan dengan
+#      repository variable DEPLOY_ENABLED=true + secrets (lihat DEPLOY.md)
+
+name: CD
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }} # otomatis dilowercase oleh metadata-action
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build · Smoke test · Push GHCR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login ke GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image (dimuat lokal untuk smoke test)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: valencystudio:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test — boot fresh volume & probe /api
+        run: |
+          docker run -d --name smoke \
+            -e TELEGRAM_BOT_TOKEN=smoke-placeholder \
+            -e WEB_DEFAULT_ADMIN_EMAIL=admin@example.com \
+            -e WEB_DEFAULT_ADMIN_PASSWORD=admin12345 \
+            -p 3000:3000 valencystudio:smoke
+
+          OK=""
+          BODY=""
+          for i in $(seq 1 45); do
+            BODY="$(curl -sf http://127.0.0.1:3000/api || true)"
+            if echo "$BODY" | grep -q '"ok":true'; then OK=1; break; fi
+            sleep 2
+          done
+
+          echo "--- log container (60 baris terakhir) ---"
+          docker logs smoke 2>&1 | tail -60 || true
+
+          if [ -z "$OK" ]; then
+            echo "::error::Smoke test gagal — /api tidak merespons {ok:true} dalam 90 detik"
+            exit 1
+          fi
+          echo "Smoke test lulus: $BODY"
+          docker rm -f smoke >/dev/null
+
+      - name: Metadata image (tags & labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Push ke GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy ke server produksi
+    needs: build
+    if: ${{ github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy via SSH
+        env:
+          SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+          SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
+          SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          if [ -z "$SSH_HOST" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_KEY" ] || [ -z "$DEPLOY_PATH" ]; then
+            echo "::error::Konfigurasi deploy belum lengkap."
+            echo "::error::Butuh secrets: DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_SSH_KEY (opsional DEPLOY_SSH_PORT) dan variable DEPLOY_PATH."
+            exit 1
+          fi
+          SSH_PORT="${SSH_PORT:-22}"
+
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          ssh -i ~/.ssh/deploy_key -p "$SSH_PORT" -o IdentitiesOnly=yes \
+            "$SSH_USER@$SSH_HOST" \
+            "cd '$DEPLOY_PATH' \
+              && (docker compose pull app || docker compose build app) \
+              && docker compose up -d --remove-orphans \
+              && docker image prune -f \
+              && echo '[deploy] status layanan:' && docker compose ps"
+
+      - name: Ringkasan deploy
+        run: echo "ValencyStudio ter-deploy dari commit ${{ github.sha }}"

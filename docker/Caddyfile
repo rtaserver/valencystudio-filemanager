@@ -1,0 +1,28 @@
+# ── ValencyStudio — reverse proxy produksi (Caddy) ──────────────────────────
+#
+# HTTPS OTOMATIS: ganti `:80` di bawah dengan domain Anda (contoh:
+# files.example.com), pastikan DNS sudah mengarah ke server ini dan port
+# 80/443 terbuka. Caddy akan menerbitkan sertifikat Let's Encrypt otomatis.
+#
+# Kenapa ada routing ?XTransformPort=3003 ?
+#   Klien aplikasi selalu membuka koneksi socket.io ke `/?XTransformPort=3003`
+#   (kontrak internal ValencyStudio). Proxy ini meneruskan request tersebut
+#   ke realtime fan-out service di dalam container app (port 3003), dan semua
+#   request lain ke Next.js (port 3000).
+
+:80 {
+	encode zstd gzip
+
+	# Socket.io realtime (websocket + polling handshake)
+	@realtime query XTransformPort=3003
+	handle @realtime {
+		reverse_proxy app:3003
+	}
+
+	# Aplikasi utama (Next.js) — flush segera untuk streaming download/zip
+	handle {
+		reverse_proxy app:3000 {
+			flush_interval -1
+		}
+	}
+}

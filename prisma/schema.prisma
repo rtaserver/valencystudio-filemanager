@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x", "windows"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         String   @default("USER") // OWNER | ADMIN | USER
+  quota        Float    @default(1073741824000) // bytes, -1 = unlimited
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  files        File[]
+  folders      Folder[]
+  activities   ActivityLog[]
+  apiTokens    ApiToken[]
+  downloadTokens DownloadToken[]
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  name      String
+  emoji     String? // optional custom emoji shown on cards/tree
+  color     String? // optional accent color key from FOLDER_COLORS palette
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[] @relation("FolderTree")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  files     File[]
+
+  @@index([ownerId, parentId])
+}
+
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  tokenHash  String    @unique // sha256 of the raw token (raw shown once at creation)
+  prefix     String // first 10 chars of raw token for display
+  lastUsedAt DateTime?
+  revoked    Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model File {
+  id            String        @id @default(cuid())
+  ownerId       String
+  owner         User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  folderId      String?
+  folder        Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  name          String
+  mimeType      String        @default("application/octet-stream")
+  size          Int           @default(0)
+  parts         String        @default("[]") // JSON [{ref,size}]
+  status        String        @default("PENDING") // PENDING | READY | FAILED
+  shareSlug     String        @unique @default(cuid())
+  shareEnabled  Boolean       @default(false)
+  sharePassword String? // scrypt hash
+  shareExpiresAt DateTime? // null = never expires
+  shareMaxDownloads Int? // null = unlimited public downloads
+  shareDownloadCount Int @default(0) // counts only public (share link) downloads
+  downloads     Int           @default(0)
+  starred       Boolean       @default(false) // user favorite flag (Starred view)
+  tgSummaryMessageId Int? // Telegram message_id of the file's summary card in the storage chat
+  deletedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  downloadLogs  DownloadLog[]
+  downloadTokens DownloadToken[]
+
+  @@index([ownerId, deletedAt])
+  @@index([ownerId, folderId])
+  @@index([ownerId, starred])
+  @@index([status, createdAt])
+}
+
+model DownloadToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique // sha256 of the raw token (raw URL shown once at creation)
+  prefix     String // first chars of the raw token for display
+  fileId     String
+  file       File      @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  oneTime    Boolean   @default(false) // burn after first successful download
+  usedCount  Int       @default(0)
+  expiresAt  DateTime
+  revoked    Boolean   @default(false)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([fileId])
+  @@index([userId])
+}
+
+model DownloadLog {
+  id        String   @id @default(cuid())
+  fileId    String
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([fileId, createdAt])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String // AUTH_LOGIN | AUTH_REGISTER | FILE_UPLOAD | FILE_DELETE | FILE_SHARE | FILE_DOWNLOAD | ADMIN_*
+  detail    String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model Setting {
+  key   String @id
+  value String
+}

@@ -1,0 +1,42 @@
+# ── ValencyStudio .dockerignore ──────────────────────────────
+# Konteks build dijaga sekecil mungkin: hanya source yang
+# dibutuhkan `next build` yang dikirim ke daemon.
+
+# VCS & CI (tidak dibutuhkan di dalam image)
+.git
+.github
+.gitignore
+
+# Dependensi & artefak build (di-install/di-build ulang di dalam container)
+node_modules
+.next
+out
+*.tsbuildinfo
+
+# Data runtime lokal — JANGAN pernah masuk image
+db
+storage
+upload
+download
+*.db
+*.db-journal
+*.log
+dev.log
+server.log
+
+# Lingkungan & konfigurasi sandbox
+.env
+.env.*
+!.env.example
+.zscripts
+tool-results
+tests
+examples
+skills
+scripts
+
+# Dokumentasi proses
+worklog.md
+Dockerfile
+docker-compose.yml
+.dockerignore
