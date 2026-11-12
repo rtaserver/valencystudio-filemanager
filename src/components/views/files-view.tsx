@@ -1950,7 +1950,7 @@ function GridCard({
           className={`absolute top-2 right-10 z-10 size-7 rounded-md grid place-items-center cursor-pointer transition-all ${
             file.starred
               ? 'text-amber-400 opacity-100'
-              : 'text-muted-foreground/60 opacity-0 lg:opacity-0 lg:group-hover:opacity-100 hover:text-amber-400 hover:bg-amber-500/10'
+              : 'text-muted-foreground/60 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 hover:text-amber-400 hover:bg-amber-500/10'
           } focus-visible:opacity-100`}
         >
           <Star className={`size-4 ${file.starred ? 'fill-amber-400' : ''}`} />
@@ -2009,7 +2009,7 @@ function GridCard({
         )}
       </div>
       {mode !== 'trash' && file.status === 'READY' && (
-        <div className="mt-3 flex gap-1.5 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+        <div className="mt-3 flex gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity">
           <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1" onClick={h.onDownload}>
             <Download className="size-3" /> Download
           </Button>
@@ -2019,7 +2019,7 @@ function GridCard({
         </div>
       )}
       {mode === 'trash' && (
-        <div className="mt-3 flex gap-1.5 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+        <div className="mt-3 flex gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity">
           <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1" onClick={h.onRestore}>
             <RotateCcw className="size-3" /> Restore
           </Button>
@@ -2052,14 +2052,23 @@ function ListView({
   return (
     <div className="rounded-lg border border-border/70 bg-card overflow-hidden shadow-xs">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[720px] table-fixed text-sm">
+          <colgroup>
+            {selecting && <col className="w-10" />}
+            <col />
+            <col className="w-28" />
+            <col className="w-36" />
+            <col className="w-24" />
+            <col className="w-28" />
+            <col className="w-12" />
+          </colgroup>
           <thead>
             <tr className="border-b border-border/70 text-left font-mono text-[11px] uppercase tracking-wider text-muted-foreground/70 bg-muted/20">
               {selecting && <th className="font-medium px-3 py-2.5 w-8"></th>}
               <th className="font-medium px-4 py-2.5">Name</th>
-              <th className="font-medium px-4 py-2.5 hidden sm:table-cell">Size</th>
+              <th className="font-medium px-4 py-2.5 text-right hidden sm:table-cell">Size</th>
               <th className="font-medium px-4 py-2.5 hidden md:table-cell">{mode === 'trash' ? 'Trashed' : 'Uploaded'}</th>
-              <th className="font-medium px-4 py-2.5 hidden lg:table-cell">Downloads</th>
+              <th className="font-medium px-4 py-2.5 text-right hidden lg:table-cell">Downloads</th>
               <th className="font-medium px-4 py-2.5">Status</th>
               <th className="font-medium px-4 py-2.5 w-10"></th>
             </tr>
@@ -2074,7 +2083,7 @@ function ListView({
                   data-kb="file"
                   data-kb-type="file"
                   data-kb-id={f.id}
-                  className={`border-b border-border/40 last:border-0 transition-colors cursor-pointer focus-visible:outline-none focus-visible:bg-primary/5 ${
+                  className={`h-[60px] border-b border-border/40 last:border-0 transition-colors cursor-pointer focus-visible:outline-none focus-visible:bg-primary/5 ${
                     selected.has(f.id) ? 'bg-primary/[0.04] border-l-2 border-l-primary' : 'hover:bg-muted/20'
                   }`}
                 >
@@ -2087,7 +2096,7 @@ function ListView({
                     <div className="flex items-center gap-3 min-w-0">
                       <Thumb file={f} />
                       <div className="min-w-0">
-                        <span className="font-medium truncate block max-w-[240px]" title={f.name}>{f.name}</span>
+                        <span className="font-medium truncate block max-w-[min(42vw,520px)]" title={f.name}>{f.name}</span>
                         {showPath && f.folderPath && (
                           <span
                             className="mt-0.5 flex items-center gap-1 font-mono text-[10px] text-muted-foreground max-w-[240px]"
@@ -2110,11 +2119,11 @@ function ListView({
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden sm:table-cell tnum">{formatBytes(f.size)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground hidden sm:table-cell tnum whitespace-nowrap">{formatBytes(f.size)}</td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden md:table-cell tnum">
                     {formatDate(mode === 'trash' && f.deletedAt ? f.deletedAt : f.createdAt)}
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground hidden lg:table-cell tnum">{f.downloads}</td>
+                  <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground hidden lg:table-cell tnum whitespace-nowrap">{f.downloads}</td>
                   <td className="px-4 py-3">
                     <Badge variant="outline" className={`text-[10px] ${mode === 'trash' ? 'border-red-500/40 text-red-500' : statusColor(f.status)}`}>
                       {mode === 'trash' ? 'TRASHED' : f.status}
