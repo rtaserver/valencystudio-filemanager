@@ -200,6 +200,7 @@ export function FilesView({ mode = 'files' }: { mode?: FilesMode }) {
   }>({ route: null, selecting: false, selected: EMPTY_SELECTION })
   const [confirmDelete, setConfirmDelete] = useState<FileRow | null>(null)
   const [confirmPurge, setConfirmPurge] = useState<FileRow | FileRow[] | null>(null)
+  const [confirmEmptyTrash, setConfirmEmptyTrash] = useState(false)
   const [confirmFolderDelete, setConfirmFolderDelete] = useState<FolderRow | null>(null)
   const [shareFile, setShareFile] = useState<FileRow | null>(null)
   const [previewFile, setPreviewFile] = useState<FileRow | null>(null)
@@ -380,6 +381,26 @@ export function FilesView({ mode = 'files' }: { mode?: FilesMode }) {
       description: 'Copies share the same storage parts — zero extra bytes uploaded.',
     })
     invalidate()
+  }
+
+  const [bulkTrashBusy, setBulkTrashBusy] = useState(false)
+  const bulkTrashAction = async (action: 'restore' | 'purge', targets: FileRow[]) => {
+    const ids = targets.map(file => file.id)
+    if (!ids.length || bulkTrashBusy) return
+    setBulkTrashBusy(true)
+    try {
+      const result = await api<{ affected: number }>('/api/files/bulk', { method: 'POST', body: { action, ids } })
+      toast.success(action === 'restore'
+        ? `${result.affected} file${result.affected === 1 ? '' : 's'} restored`
+        : `${result.affected} file${result.affected === 1 ? '' : 's'} permanently deleted`)
+      setSelected(new Set())
+      setSelecting(false)
+      invalidate()
+    } catch (error: any) {
+      toast.error(error?.message || (action === 'restore' ? 'Restore failed' : 'Permanent delete failed'))
+    } finally {
+      setBulkTrashBusy(false)
+    }
   }
 
   const doPurgeSelection = async () => {
@@ -581,6 +602,24 @@ export function FilesView({ mode = 'files' }: { mode?: FilesMode }) {
       else next.add(id)
       return next
     })
+  }
+
+  const emptyTrash = async () => {
+    if (bulkTrashBusy) return
+    setBulkTrashBusy(true)
+    try {
+      const result = await api<{ affected: number }>('/api/files/bulk', {
+        method: 'POST',
+        body: { action: 'purge-all' },
+      })
+      toast.success(`${result.affected} file${result.affected === 1 ? '' : 's'} permanently deleted`)
+      setConfirmEmptyTrash(false)
+      invalidate()
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not empty trash')
+    } finally {
+      setBulkTrashBusy(false)
+    }
   }
 
   const trashMode = mode === 'trash'
@@ -893,6 +932,46 @@ export function FilesView({ mode = 'files' }: { mode?: FilesMode }) {
               </button>
             )
           })}
+        </div>
+      )}
+
+      {/* Trash bulk actions */}
+      {trashMode && files.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-card px-3 py-2.5">
+          <Button
+            size="sm"
+            variant={selecting ? 'default' : 'outline'}
+            className="gap-1.5"
+            onClick={() => {
+              if (selecting) setSelected(new Set())
+              setSelecting(value => !value)
+            }}
+          >
+            {selecting ? <X className="size-4" /> : <CheckSquare className="size-4" />}
+            {selecting ? 'Cancel selection' : 'Select files'}
+          </Button>
+          {selecting && (
+            <>
+              <span className="text-sm text-muted-foreground">{selected.size} selected</span>
+              <Button size="sm" variant="ghost" onClick={() => setSelected(selected.size === files.length ? new Set() : new Set(files.map(file => file.id)))}>
+                {selected.size === files.length ? 'Clear selection' : `Select all ${files.length}`}
+              </Button>
+              <div className="flex-1" />
+              <Button size="sm" variant="outline" disabled={selected.size === 0 || bulkTrashBusy} onClick={() => bulkTrashAction('restore', files.filter(file => selected.has(file.id)))}>
+                <RotateCcw className="size-4" /> Restore selected
+              </Button>
+              <Button size="sm" variant="destructive" disabled={selected.size === 0 || bulkTrashBusy} onClick={() => setConfirmPurge(files.filter(file => selected.has(file.id)))}>
+                <Trash className="size-4" /> Delete selected
+              </Button>
+            </>
+          )}
+          {!selecting && (
+            <div className="ml-auto">
+              <Button size="sm" variant="destructive" onClick={() => setConfirmEmptyTrash(true)}>
+                <Trash2 className="size-4" /> Empty trash
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1314,6 +1393,23 @@ export function FilesView({ mode = 'files' }: { mode?: FilesMode }) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" onClick={doDelete}>
               {mode === 'trash' ? 'Delete permanently' : 'Move to trash'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmEmptyTrash} onOpenChange={open => !open && setConfirmEmptyTrash(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Empty trash permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete every file currently in the Trash, including items not shown on this page. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkTrashBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" disabled={bulkTrashBusy} onClick={event => { event.preventDefault(); void emptyTrash() }}>
+              {bulkTrashBusy ? 'Deleting…' : 'Delete all permanently'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

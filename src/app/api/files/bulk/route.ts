@@ -11,15 +11,28 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 600
 
-/** Bulk operations on the current user's files: { action: 'trash' | 'restore' | 'purge' | 'move' | 'star' | 'unstar', ids: string[], folderId? } */
+/** Bulk operations on the current user's files: { action: 'trash' | 'restore' | 'purge' | 'purge-all' | 'move' | 'star' | 'unstar', ids: string[], folderId? } */
 export async function POST(req: Request) {
   const session = await getSessionUser(req)
   if (!session) return jsonError('Unauthorized', 401)
   const body = await readJson<{ action?: string; ids?: string[]; folderId?: string | null }>(req)
   const action = body.action
   const ids = Array.isArray(body.ids) ? body.ids.slice(0, 500) : []
-  if (!['trash', 'restore', 'purge', 'move', 'star', 'unstar'].includes(action || '')) return jsonError('Invalid action.')
-  if (ids.length === 0) return jsonError('No files selected.')
+  if (!['trash', 'restore', 'purge', 'purge-all', 'move', 'star', 'unstar'].includes(action || '')) return jsonError('Invalid action.')
+  if (action !== 'purge-all' && ids.length === 0) return jsonError('No files selected.')
+
+  if (action === 'purge-all') {
+    const trashFiles = await db.file.findMany({ where: { ownerId: session.id, deletedAt: { not: null } }, select: { id: true } })
+    let affected = 0
+    for (const file of trashFiles) {
+      try {
+        await deleteFileCompletely(file.id, session.id, session.role)
+        affected++
+      } catch {}
+    }
+    if (affected > 0) emitChanged(['files', 'activity'], { rooms: [ROOM.user(session.id), ROOM.admins] })
+    return Response.json({ ok: true, affected, requested: trashFiles.length })
+  }
 
   // resolve target folder for move
   let moveFolderId: string | null = null
