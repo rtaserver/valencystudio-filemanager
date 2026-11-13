@@ -51,19 +51,24 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-ENV NEXT_TELEMETRY_DISABLED=1
-# Placeholder build-time — nilai asli disuntikkan saat runtime
-# (via .env + docker-compose / docker run). Build tidak boleh
-# bergantung pada secret apa pun.
-ENV DATABASE_URL="file:/tmp/build.db" \
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    DATABASE_URL="file:/tmp/build.db" \
     TELETHON_BOT_TOKEN="build-placeholder" \
+    TELETHON_API_ID="2496" \
+    TELETHON_API_HASH="build-placeholder" \
+    TELETHON_ADMIN_IDS="0" \
     TELETHON_STORAGE_CHAT_ID="-100" \
     WEB_DEFAULT_ADMIN_EMAIL="admin@example.com" \
     WEB_DEFAULT_ADMIN_PASSWORD="build-placeholder"
-
-# next build + penggabungan .next/static & public ke .next/standalone
-# (didefinisikan pada script "build" di package.json)
-RUN bun run build
+RUN --mount=type=secret,id=DATABASE_URL,env=DATABASE_URL,required=false \
+    --mount=type=secret,id=TELETHON_BOT_TOKEN,env=TELETHON_BOT_TOKEN,required=false \
+    --mount=type=secret,id=TELETHON_API_ID,env=TELETHON_API_ID,required=false \
+    --mount=type=secret,id=TELETHON_API_HASH,env=TELETHON_API_HASH,required=false \
+    --mount=type=secret,id=TELETHON_ADMIN_IDS,env=TELETHON_ADMIN_IDS,required=false \
+    --mount=type=secret,id=TELETHON_STORAGE_CHAT_ID,env=TELETHON_STORAGE_CHAT_ID,required=false \
+    --mount=type=secret,id=WEB_DEFAULT_ADMIN_EMAIL,env=WEB_DEFAULT_ADMIN_EMAIL,required=false \
+    --mount=type=secret,id=WEB_DEFAULT_ADMIN_PASSWORD,env=WEB_DEFAULT_ADMIN_PASSWORD,required=false \
+    bun run build
 
 # ────────────────────────────── deps-prod ───────────────────────────────────
 # Production-only node_modules untuk runner (app + prisma CLI + client engine).
@@ -83,6 +88,17 @@ RUN bun install --frozen-lockfile --production \
 # ─────────────────────────────── runner ─────────────────────────────────────
 FROM oven/bun:1 AS runner
 WORKDIR /app
+
+# Build credentials are intentionally absent from the final image.
+ENV DATABASE_URL="file:/app/db/custom.db" \
+    TELETHON_BOT_TOKEN="" \
+    TELETHON_API_ID="" \
+    TELETHON_API_HASH="" \
+    TELETHON_ADMIN_IDS="" \
+    TELETHON_STORAGE_CHAT_ID="" \
+    WEB_DEFAULT_ADMIN_EMAIL="" \
+    WEB_DEFAULT_ADMIN_PASSWORD=""
+
 
 # Python runtime untuk telethon-core microservice
 RUN apt-get update && apt-get install -y --no-install-recommends python3 \

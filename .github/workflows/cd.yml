@@ -1,5 +1,5 @@
 # ── ValencyStudio — CD ───────────────────────────────────────────────────────
-# Push ke main / tag v* / manual:
+# Push a master / tag v* / manual:
 #   1. Build image Docker multi-stage
 #   2. Smoke test: boot container dengan volume kosong → /api harus ok:true
 #   3. Push ke GitHub Container Registry (ghcr.io)
@@ -10,7 +10,7 @@ name: CD
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -30,6 +30,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify required repository secrets
+        if: github.event_name != 'pull_request'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELETHON_BOT_TOKEN: ${{ secrets.TELETHON_BOT_TOKEN }}
+          TELETHON_API_ID: ${{ secrets.TELETHON_API_ID }}
+          TELETHON_API_HASH: ${{ secrets.TELETHON_API_HASH }}
+          TELETHON_ADMIN_IDS: ${{ secrets.TELETHON_ADMIN_IDS }}
+          TELETHON_STORAGE_CHAT_ID: ${{ secrets.TELETHON_STORAGE_CHAT_ID }}
+          WEB_DEFAULT_ADMIN_EMAIL: ${{ secrets.WEB_DEFAULT_ADMIN_EMAIL }}
+          WEB_DEFAULT_ADMIN_PASSWORD: ${{ secrets.WEB_DEFAULT_ADMIN_PASSWORD }}
+        run: |
+          required=(DATABASE_URL TELETHON_BOT_TOKEN TELETHON_API_ID TELETHON_API_HASH TELETHON_ADMIN_IDS TELETHON_STORAGE_CHAT_ID WEB_DEFAULT_ADMIN_EMAIL WEB_DEFAULT_ADMIN_PASSWORD)
+          for name in "${required[@]}"; do
+            if [ -z "${!name}" ]; then echo "::error::Repository secret $name is required"; exit 1; fi
+          done
+
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -42,6 +59,15 @@ jobs:
 
       - name: Build image (dimuat lokal untuk smoke test)
         uses: docker/build-push-action@v6
+        env:
+          DATABASE_URL: file:/tmp/build.db
+          TELETHON_BOT_TOKEN: smoke-placeholder
+          TELETHON_API_ID: "2496"
+          TELETHON_API_HASH: smoke-placeholder
+          TELETHON_ADMIN_IDS: "0"
+          TELETHON_STORAGE_CHAT_ID: "-100"
+          WEB_DEFAULT_ADMIN_EMAIL: admin@example.com
+          WEB_DEFAULT_ADMIN_PASSWORD: smoke-placeholder-password
         with:
           context: .
           load: true
@@ -52,9 +78,14 @@ jobs:
       - name: Smoke test — boot fresh volume & probe /api
         run: |
           docker run -d --name smoke \
+            -e DATABASE_URL=file:/app/db/custom.db \
             -e TELETHON_BOT_TOKEN=smoke-placeholder \
+            -e TELETHON_API_ID=2496 \
+            -e TELETHON_API_HASH=smoke-placeholder \
+            -e TELETHON_ADMIN_IDS=0 \
+            -e TELETHON_STORAGE_CHAT_ID=-100 \
             -e WEB_DEFAULT_ADMIN_EMAIL=admin@example.com \
-            -e WEB_DEFAULT_ADMIN_PASSWORD=admin12345 \
+            -e WEB_DEFAULT_ADMIN_PASSWORD=smoke-placeholder-password \
             -p 3000:3000 valencystudio:smoke
 
           OK=""
@@ -88,7 +119,17 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Push ke GHCR
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELETHON_BOT_TOKEN: ${{ secrets.TELETHON_BOT_TOKEN }}
+          TELETHON_API_ID: ${{ secrets.TELETHON_API_ID }}
+          TELETHON_API_HASH: ${{ secrets.TELETHON_API_HASH }}
+          TELETHON_ADMIN_IDS: ${{ secrets.TELETHON_ADMIN_IDS }}
+          TELETHON_STORAGE_CHAT_ID: ${{ secrets.TELETHON_STORAGE_CHAT_ID }}
+          WEB_DEFAULT_ADMIN_EMAIL: ${{ secrets.WEB_DEFAULT_ADMIN_EMAIL }}
+          WEB_DEFAULT_ADMIN_PASSWORD: ${{ secrets.WEB_DEFAULT_ADMIN_PASSWORD }}
         with:
           context: .
           push: true
@@ -96,11 +137,20 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          secret-envs: |
+            DATABASE_URL=DATABASE_URL
+            TELETHON_BOT_TOKEN=TELETHON_BOT_TOKEN
+            TELETHON_API_ID=TELETHON_API_ID
+            TELETHON_API_HASH=TELETHON_API_HASH
+            TELETHON_ADMIN_IDS=TELETHON_ADMIN_IDS
+            TELETHON_STORAGE_CHAT_ID=TELETHON_STORAGE_CHAT_ID
+            WEB_DEFAULT_ADMIN_EMAIL=WEB_DEFAULT_ADMIN_EMAIL
+            WEB_DEFAULT_ADMIN_PASSWORD=WEB_DEFAULT_ADMIN_PASSWORD
 
   deploy:
     name: Deploy ke server produksi
     needs: build
-    if: ${{ github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true' }}
+    if: ${{ github.ref == 'refs/heads/master' && vars.DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     environment: production
     steps:

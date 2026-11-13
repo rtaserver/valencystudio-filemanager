@@ -1,5 +1,5 @@
 # ── ValencyStudio — CI ───────────────────────────────────────────────────────
-# Dipicu setiap push ke main dan setiap pull request.
+# Dipicu setiap push ke master dan setiap pull request.
 # Gerbang mutlak sebelum kode dianggap layak: lint bersih, type-check bersih,
 # dan build produksi sukses (build gagal = pipeline merah).
 
@@ -10,9 +10,9 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -34,23 +34,58 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Bun tidak menjalankan lifecycle script pihak ketiga secara default,
-      # jadi Prisma Client digenerate eksplisit.
+      - name: Verify required repository secrets (push)
+        if: github.event_name == 'push'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELETHON_BOT_TOKEN: ${{ secrets.TELETHON_BOT_TOKEN }}
+          TELETHON_API_ID: ${{ secrets.TELETHON_API_ID }}
+          TELETHON_API_HASH: ${{ secrets.TELETHON_API_HASH }}
+          TELETHON_ADMIN_IDS: ${{ secrets.TELETHON_ADMIN_IDS }}
+          TELETHON_STORAGE_CHAT_ID: ${{ secrets.TELETHON_STORAGE_CHAT_ID }}
+          WEB_DEFAULT_ADMIN_EMAIL: ${{ secrets.WEB_DEFAULT_ADMIN_EMAIL }}
+          WEB_DEFAULT_ADMIN_PASSWORD: ${{ secrets.WEB_DEFAULT_ADMIN_PASSWORD }}
+        run: |
+          required=(DATABASE_URL TELETHON_BOT_TOKEN TELETHON_API_ID TELETHON_API_HASH TELETHON_ADMIN_IDS TELETHON_STORAGE_CHAT_ID WEB_DEFAULT_ADMIN_EMAIL WEB_DEFAULT_ADMIN_PASSWORD)
+          for name in "${required[@]}"; do
+            if [ -z "${!name}" ]; then echo "::error::Repository secret $name is required"; exit 1; fi
+          done
+
       - name: Generate Prisma client
+        env:
+          DATABASE_URL: file:/tmp/ci.db
         run: bunx prisma generate
 
       - name: Lint
         run: bun run lint
 
       - name: Typecheck
+        env:
+          DATABASE_URL: file:/tmp/ci.db
         run: bunx tsc --noEmit
 
-      - name: Build produksi
+      - name: Build produksi (pull request)
+        if: github.event_name == 'pull_request'
         env:
-          # Placeholder build — pipeline tidak pernah menyentuh data nyata
           DATABASE_URL: file:/tmp/ci.db
           TELETHON_BOT_TOKEN: ci-placeholder
+          TELETHON_API_ID: "2496"
+          TELETHON_API_HASH: ci-placeholder
+          TELETHON_ADMIN_IDS: "0"
           TELETHON_STORAGE_CHAT_ID: "-100"
           WEB_DEFAULT_ADMIN_EMAIL: ci@example.com
-          WEB_DEFAULT_ADMIN_PASSWORD: ci-placeholder
+          WEB_DEFAULT_ADMIN_PASSWORD: ci-placeholder-password
+        run: bun run build
+
+      - name: Build produksi (push)
+        if: github.event_name == 'push'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELETHON_BOT_TOKEN: ${{ secrets.TELETHON_BOT_TOKEN }}
+          TELETHON_API_ID: ${{ secrets.TELETHON_API_ID }}
+          TELETHON_API_HASH: ${{ secrets.TELETHON_API_HASH }}
+          TELETHON_ADMIN_IDS: ${{ secrets.TELETHON_ADMIN_IDS }}
+          TELETHON_STORAGE_CHAT_ID: ${{ secrets.TELETHON_STORAGE_CHAT_ID }}
+          WEB_DEFAULT_ADMIN_EMAIL: ${{ secrets.WEB_DEFAULT_ADMIN_EMAIL }}
+          WEB_DEFAULT_ADMIN_PASSWORD: ${{ secrets.WEB_DEFAULT_ADMIN_PASSWORD }}
         run: bun run build
