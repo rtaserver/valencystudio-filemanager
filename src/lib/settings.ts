@@ -26,11 +26,11 @@ const DEFAULTS: Record<string, string> = {
   defaultQuota: String(1000 * 1024 * 1024 * 1024),
   maxFileSize: String(2_147_483_648), // 2 GiB MTProto limit
   storageBackend: 'telegram',
-  tgBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
-  tgApiId: process.env.TELEGRAM_API_ID || process.env.TELETHON_API_ID || '',
-  tgApiHash: process.env.TELEGRAM_API_HASH || process.env.TELETHON_API_HASH || '',
-  tgAdminIds: process.env.TELEGRAM_ADMIN_IDS || '',
-  tgStorageChatId: process.env.TELEGRAM_STORAGE_CHAT_ID || process.env.TELETHON_STORAGE_CHAT_ID || '',
+  tgBotToken: process.env.TELETHON_BOT_TOKEN || '',
+  tgApiId: process.env.TELETHON_API_ID || process.env.TELETHON_API_ID || '',
+  tgApiHash: process.env.TELETHON_API_HASH || process.env.TELETHON_API_HASH || '',
+  tgAdminIds: process.env.TELETHON_ADMIN_IDS || '',
+  tgStorageChatId: process.env.TELETHON_STORAGE_CHAT_ID || process.env.TELETHON_STORAGE_CHAT_ID || '',
   telethonCoreUrl: process.env.TELETHON_CORE_URL || 'http://127.0.0.1:3005',
   telethonInternalKey: process.env.TELETHON_INTERNAL_KEY || 'vs-telethon-internal-key',
 }
@@ -57,7 +57,7 @@ export async function getSettings(): Promise<AppSettings> {
   const rawMax = parseInt(raw.maxFileSize) || 0
   const maxFileSize = (!rawMax || rawMax <= 2_000_000_000) ? 2_147_483_648 : Math.min(rawMax, 2_147_483_648)
   if (rawMax > 0 && rawMax <= 2_000_000_000) {
-    db.setting.upsert({ where: { key: 'maxFileSize' }, update: { value: '2147483648' }, create: { key: 'maxFileSize', value: '2147483648' } }).catch(() => {})
+    db.setting.upsert({ where: { key: 'maxFileSize' }, update: { value: '2147483648' }, create: { key: 'maxFileSize', value: '2147483648' } }).catch(() => { })
   }
   return {
     siteName: raw.siteName,

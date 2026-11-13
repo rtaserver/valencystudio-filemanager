@@ -319,7 +319,7 @@ Agent: main (Z.ai Code)
 Task: Production readiness per user brief — real storage group ID (-1002718415979), zero dummy/mock data, de-AI-slop UI redesign
 
 Work Log:
-- STORAGE CONFIGURED (the long-standing unresolved blocker): user supplied storage group ID -1002718415979. Wrote full credentials to .env (TELEGRAM_BOT_TOKEN/API_ID/API_HASH/ADMIN_IDS/TELEGRAM_STORAGE_CHAT_ID + WEB_DEFAULT_ADMIN_*); settings.ts DEFAULTS now seed tgStorageChatId from env on bootstrap.
+- STORAGE CONFIGURED (the long-standing unresolved blocker): user supplied storage group ID -1002718415979. Wrote full credentials to .env (TELETHON_BOT_TOKEN/API_ID/API_HASH/ADMIN_IDS/TELETHON_STORAGE_CHAT_ID + WEB_DEFAULT_ADMIN_*); settings.ts DEFAULTS now seed tgStorageChatId from env on bootstrap.
 - Verified bot @rtawrt_bot getMe OK + getChat(-1002718415979) OK ("Rizkikotet - Personal Channel Chat", supergroup forum, can_send_documents).
 - RAW storage cycle test vs the real group: sendDocument → getFile → download (byte-identical) → deleteMessage ALL OK.
 - IN-APP E2E: /api/files/init → part → complete → READY; download 200 byte-identical; Range bytes=7-25 → HTTP 206 correct slice; UI synthetic drop upload → READY 1 part; public share link /#/f/<slug> → public download 200 identical. Storage layer 100% real, zero mocks.

@@ -63,7 +63,7 @@ def get_settings() -> Settings:
 
     api_id_raw = os.getenv(
         "TELETHON_API_ID",
-        os.getenv("TELEGRAM_API_ID", db_settings.get("tgApiId", ""))
+        os.getenv("TELETHON_API_ID", db_settings.get("tgApiId", ""))
     ).strip()
     try:
         api_id = int(api_id_raw) if api_id_raw and api_id_raw != "0" else DEFAULT_API_ID
@@ -75,7 +75,7 @@ def get_settings() -> Settings:
     # Telegram API Hash
     api_hash = os.getenv(
         "TELETHON_API_HASH",
-        os.getenv("TELEGRAM_API_HASH", db_settings.get("tgApiHash", ""))
+        os.getenv("TELETHON_API_HASH", db_settings.get("tgApiHash", ""))
     ).strip()
     if not api_hash:
         api_hash = DEFAULT_API_HASH
@@ -83,13 +83,13 @@ def get_settings() -> Settings:
     # Bot Token
     bot_token = os.getenv(
         "TELETHON_BOT_TOKEN",
-        os.getenv("TELEGRAM_BOT_TOKEN", db_settings.get("tgBotToken", ""))
+        os.getenv("TELETHON_BOT_TOKEN", db_settings.get("tgBotToken", ""))
     ).strip()
 
     # Storage Chat ID
     chat_id_raw = os.getenv(
         "TELETHON_STORAGE_CHAT_ID",
-        os.getenv("TELEGRAM_STORAGE_CHAT_ID", db_settings.get("tgStorageChatId", "0"))
+        os.getenv("TELETHON_STORAGE_CHAT_ID", db_settings.get("tgStorageChatId", "0"))
     ).strip()
     try:
         storage_chat_id = int(chat_id_raw)

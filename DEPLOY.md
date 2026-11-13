@@ -64,7 +64,7 @@ cd valencystudio
 
 # 2) Siapkan konfigurasi
 cp .env.example .env
-nano .env          # isi minimal: TELEGRAM_BOT_TOKEN & TELEGRAM_STORAGE_CHAT_ID
+nano .env          # isi minimal: TELETHON_BOT_TOKEN & TELETHON_STORAGE_CHAT_ID
 
 # 3) Build & jalankan (pertama kali ±2–5 menit)
 docker compose up -d --build
@@ -108,8 +108,8 @@ docker compose pull && docker compose up -d
 
 | Variabel                    | Wajib | Keterangan                                                                 |
 | --------------------------- | ----- | -------------------------------------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`        | ✅    | Token bot dari @BotFather; bot harus ada di grup penyimpanan               |
-| `TELEGRAM_STORAGE_CHAT_ID`  | ✅    | ID grup/channel storage (negatif, contoh `-1001234567890`)                 |
+| `TELETHON_BOT_TOKEN`        | ✅    | Token bot dari @BotFather; bot harus ada di grup penyimpanan               |
+| `TELETHON_STORAGE_CHAT_ID`  | ✅    | ID grup/channel storage (negatif, contoh `-1001234567890`)                 |
 | `WEB_DEFAULT_ADMIN_EMAIL`   | ✅    | Email akun owner yang di-seed saat boot pertama                            |
 | `WEB_DEFAULT_ADMIN_PASSWORD`| ✅    | Password awal owner — **ganti setelah login pertama**                      |
 | `APP_IMAGE`                 | ➖    | Image GHCR untuk mode CD (kosong = build lokal)                            |

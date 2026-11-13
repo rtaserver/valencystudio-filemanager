@@ -52,7 +52,7 @@ jobs:
       - name: Smoke test — boot fresh volume & probe /api
         run: |
           docker run -d --name smoke \
-            -e TELEGRAM_BOT_TOKEN=smoke-placeholder \
+            -e TELETHON_BOT_TOKEN=smoke-placeholder \
             -e WEB_DEFAULT_ADMIN_EMAIL=admin@example.com \
             -e WEB_DEFAULT_ADMIN_PASSWORD=admin12345 \
             -p 3000:3000 valencystudio:smoke

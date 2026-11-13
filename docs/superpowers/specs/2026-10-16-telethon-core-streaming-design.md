@@ -129,9 +129,9 @@
 |---|---|---|
 | `TELETHON_API_ID` | Telegram API ID from my.telegram.org | Required |
 | `TELETHON_API_HASH` | Telegram API Hash from my.telegram.org | Required |
-| `TELETHON_BOT_TOKEN` | Bot token fallback for non-interactive MTProto | Optional / Falls back to `TELEGRAM_BOT_TOKEN` |
+| `TELETHON_BOT_TOKEN` | Bot token fallback for non-interactive MTProto | Optional / Falls back to `TELETHON_BOT_TOKEN` |
 | `TELETHON_SESSION_PATH` | Path to persistent sqlite session file | `/app/db/telethon.session` |
-| `TELETHON_STORAGE_CHAT_ID` | Telegram channel/group chat ID for storage | Required (matches `TELEGRAM_STORAGE_CHAT_ID`) |
+| `TELETHON_STORAGE_CHAT_ID` | Telegram channel/group chat ID for storage | Required (matches `TELETHON_STORAGE_CHAT_ID`) |
 | `TELETHON_INTERNAL_KEY` | Shared secret between Next.js and Telethon Core | `vs-telethon-internal-key` |
 | `TELETHON_CORE_URL` | Telethon Core internal HTTP URL | `http://127.0.0.1:3005` |
 | `TELETHON_MAX_CONCURRENT_UPLOADS` | Maximum simultaneous MTProto uploads | `1` |

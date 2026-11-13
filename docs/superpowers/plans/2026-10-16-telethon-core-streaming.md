@@ -111,17 +111,17 @@ class Settings:
     port: int
 
 def get_settings() -> Settings:
-    api_id_raw = os.getenv("TELETHON_API_ID", os.getenv("TELEGRAM_API_ID", "0")).strip()
+    api_id_raw = os.getenv("TELETHON_API_ID", os.getenv("TELETHON_API_ID", "0")).strip()
     try:
         api_id = int(api_id_raw)
     except ValueError:
         raise ValueError("TELETHON_API_ID must be a valid integer")
 
-    api_hash = os.getenv("TELETHON_API_HASH", os.getenv("TELEGRAM_API_HASH", "")).strip()
-    bot_token = os.getenv("TELETHON_BOT_TOKEN", os.getenv("TELEGRAM_BOT_TOKEN", "")).strip()
+    api_hash = os.getenv("TELETHON_API_HASH", os.getenv("TELETHON_API_HASH", "")).strip()
+    bot_token = os.getenv("TELETHON_BOT_TOKEN", os.getenv("TELETHON_BOT_TOKEN", "")).strip()
     session_path = os.getenv("TELETHON_SESSION_PATH", "/app/db/telethon.session").strip()
 
-    chat_id_raw = os.getenv("TELETHON_STORAGE_CHAT_ID", os.getenv("TELEGRAM_STORAGE_CHAT_ID", "0")).strip()
+    chat_id_raw = os.getenv("TELETHON_STORAGE_CHAT_ID", os.getenv("TELETHON_STORAGE_CHAT_ID", "0")).strip()
     try:
         storage_chat_id = int(chat_id_raw)
     except ValueError:

@@ -57,12 +57,12 @@ Indexes on `(ownerId, parentId)` for folder hierarchy queries.
 **Telegram (primary)**
 - Each file part stored as a message in a bot's private channel
 - Metadata (message IDs, part count) in SQLite
-- Unlimited free storage; requires valid `TELEGRAM_BOT_TOKEN` + `TELEGRAM_STORAGE_CHAT_ID`
+- Unlimited free storage; requires valid `TELETHON_BOT_TOKEN` + `TELETHON_STORAGE_CHAT_ID`
 - Fallback: local files in `/app/storage/parts/` if Telegram fails
 
 **Environment** (set at runtime or docker-compose):
 - `DATABASE_URL` — SQLite path, e.g., `file:/app/db/custom.db`
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_STORAGE_CHAT_ID` — Telegram integration
+- `TELETHON_BOT_TOKEN`, `TELETHON_STORAGE_CHAT_ID` — Telegram integration
 - `WEB_DEFAULT_ADMIN_EMAIL`, `WEB_DEFAULT_ADMIN_PASSWORD` — initial admin
 - `REALTIME_URL`, `REALTIME_INTERNAL_KEY` — socket.io service endpoint
 

@@ -49,8 +49,8 @@ jobs:
         env:
           # Placeholder build — pipeline tidak pernah menyentuh data nyata
           DATABASE_URL: file:/tmp/ci.db
-          TELEGRAM_BOT_TOKEN: ci-placeholder
-          TELEGRAM_STORAGE_CHAT_ID: "-100"
+          TELETHON_BOT_TOKEN: ci-placeholder
+          TELETHON_STORAGE_CHAT_ID: "-100"
           WEB_DEFAULT_ADMIN_EMAIL: ci@example.com
           WEB_DEFAULT_ADMIN_PASSWORD: ci-placeholder
         run: bun run build

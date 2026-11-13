@@ -56,8 +56,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # (via .env + docker-compose / docker run). Build tidak boleh
 # bergantung pada secret apa pun.
 ENV DATABASE_URL="file:/tmp/build.db" \
-    TELEGRAM_BOT_TOKEN="build-placeholder" \
-    TELEGRAM_STORAGE_CHAT_ID="-100" \
+    TELETHON_BOT_TOKEN="build-placeholder" \
+    TELETHON_STORAGE_CHAT_ID="-100" \
     WEB_DEFAULT_ADMIN_EMAIL="admin@example.com" \
     WEB_DEFAULT_ADMIN_PASSWORD="build-placeholder"
 
