@@ -6,8 +6,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-valency-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: var(--font-valency-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -50,8 +50,6 @@
  * No gradients, no glass, no rainbow accents.
  */
 :root {
-  --font-valency-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-valency-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --radius: 0.375rem;
   --background: oklch(0.975 0.002 90);
   --foreground: oklch(0.205 0.004 90);
@@ -136,7 +134,7 @@
 
 /* ── Typography helpers ─────────────────────────────────────── */
 .micro-label {
-  font-family: var(--font-valency-mono), ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   line-height: 1;
   text-transform: uppercase;
