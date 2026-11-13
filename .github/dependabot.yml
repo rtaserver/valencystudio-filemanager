@@ -5,7 +5,11 @@
 
 version: 2
 updates:
-  - package-ecosystem: "" # See documentation for possible values
+  - package-ecosystem: "bun" # Uses the root bun.lock and package.json
     directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/mini-services/telethon-core"
     schedule:
       interval: "weekly"
