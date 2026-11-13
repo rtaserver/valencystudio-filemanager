@@ -17,7 +17,8 @@ export async function uploadToTelethon(
   stream: ReadableStream<Uint8Array>,
   filename: string,
   size: number,
-  mimeType: string
+  mimeType: string,
+  signal?: AbortSignal
 ): Promise<{ messageId: number; checksum: string; size: number }> {
   const settings = await getSettings()
   const url = `${settings.telethonCoreUrl || 'http://127.0.0.1:3005'}/upload`
@@ -34,6 +35,7 @@ export async function uploadToTelethon(
     // @ts-expect-error - duplex option supported in Node/Bun fetch
     duplex: 'half',
     body: stream,
+    signal,
   })
 
   if (!res.ok) {
@@ -47,6 +49,43 @@ export async function uploadToTelethon(
     checksum: data.checksum,
     size: data.size,
   }
+}
+
+export async function uploadBigPart(
+  telegramFileId: string,
+  index: number,
+  totalParts: number,
+  data: Uint8Array,
+  signal?: AbortSignal,
+): Promise<void> {
+  const settings = await getSettings()
+  const res = await fetch(`${settings.telethonCoreUrl || 'http://127.0.0.1:3005'}/upload/big/${encodeURIComponent(telegramFileId)}/${index}`, {
+    method: 'POST',
+    headers: { 'X-Internal-Key': settings.telethonInternalKey || 'vs-telethon-internal-key', 'X-Total-Parts': String(totalParts), 'Content-Type': 'application/octet-stream' },
+    body: Uint8Array.from(data).buffer,
+    signal,
+  })
+  if (!res.ok) throw new Error(`Telethon multipart part failed (${res.status}): ${await res.text().catch(() => '')}`)
+}
+
+export async function finalizeBigUpload(
+  telegramFileId: string,
+  totalParts: number,
+  filename: string,
+  mimeType: string,
+  caption: string,
+  signal?: AbortSignal,
+): Promise<{ messageId: number; documentId: string }> {
+  const settings = await getSettings()
+  const res = await fetch(`${settings.telethonCoreUrl || 'http://127.0.0.1:3005'}/upload/big/finalize`, {
+    method: 'POST',
+    headers: { 'X-Internal-Key': settings.telethonInternalKey || 'vs-telethon-internal-key', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ telegram_file_id: Number(telegramFileId), total_parts: totalParts, filename, mime_type: mimeType, caption }),
+    signal,
+  })
+  if (!res.ok) throw new Error(`Telethon multipart finalize failed (${res.status}): ${await res.text().catch(() => '')}`)
+  const data = await res.json() as { message_id: number; document_id: string }
+  return { messageId: data.message_id, documentId: data.document_id }
 }
 
 export async function streamFromTelethon(messageId: number, range?: string | null): Promise<Response> {

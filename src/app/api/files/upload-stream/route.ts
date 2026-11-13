@@ -84,16 +84,19 @@ export async function POST(req: Request) {
 
   emitChanged(['files'], { rooms: [ROOM.user(user.id)] })
 
+  let uploadedMessageId: number | null = null
   try {
     const { messageId, checksum, size: uploadedBytes } = await uploadToTelethon(
       req.body,
       name,
       size,
-      mimeType
+      mimeType,
+      req.signal
     )
 
+    uploadedMessageId = messageId
+
     if (uploadedBytes !== size) {
-      await deleteFromTelethon(messageId)
       throw new Error(`Upload integrity check failed: received ${uploadedBytes} of ${size} expected bytes.`)
     }
 
@@ -118,10 +121,12 @@ export async function POST(req: Request) {
 
     return Response.json({ ok: true, file: publicFile(updated) })
   } catch (err: any) {
-    await db.file.update({
-      where: { id: file.id },
-      data: { status: 'FAILED' },
-    }).catch(() => {})
+    if (uploadedMessageId !== null) await deleteFromTelethon(uploadedMessageId)
+    await db.file.delete({ where: { id: file.id } }).catch(() => {})
+    emitChanged(['files'], { rooms: [ROOM.user(user.id)] })
+    if (req.signal.aborted) {
+      return jsonError('Upload was canceled or the connection closed. Retry the upload.', 499)
+    }
     return jsonError(err.message || 'Streaming upload failed', 500)
   }
 }

@@ -23,6 +23,7 @@ model User {
   activities   ActivityLog[]
   apiTokens    ApiToken[]
   downloadTokens DownloadToken[]
+  uploadSessions UploadSession[]
 }
 
 model Folder {
@@ -81,11 +82,45 @@ model File {
   updatedAt     DateTime      @updatedAt
   downloadLogs  DownloadLog[]
   downloadTokens DownloadToken[]
+  uploadSession  UploadSession?
 
   @@index([ownerId, deletedAt])
   @@index([ownerId, folderId])
   @@index([ownerId, starred])
   @@index([status, createdAt])
+}
+
+model UploadSession {
+  id             String       @id @default(cuid())
+  ownerId        String
+  owner          User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  fileId         String       @unique
+  file           File         @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  telegramFileId String
+  partSize       Int
+  totalParts     Int
+  expiresAt      DateTime
+  status         String       @default("UPLOADING") // UPLOADING | FINALIZING | READY | FAILED
+  messageId      Int?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  parts          UploadPart[]
+
+  @@index([ownerId, status, expiresAt])
+}
+
+model UploadPart {
+  id         String       @id @default(cuid())
+  sessionId  String
+  session    UploadSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  index      Int
+  size       Int
+  sha256     String
+  status     String       @default("PENDING") // PENDING | COMMITTED
+  createdAt  DateTime     @default(now())
+
+  @@unique([sessionId, index])
+  @@index([sessionId])
 }
 
 model DownloadToken {

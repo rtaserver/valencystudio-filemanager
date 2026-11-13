@@ -1,12 +1,16 @@
 import asyncio
 import os
 from typing import AsyncGenerator, Optional
-from telethon import TelegramClient
+from telethon import TelegramClient, functions, types
 from telethon.tl.types import Message, Document
 from config import Settings, get_settings
 from stream_reader import AsyncStreamReader
 
 class TelethonClientManager:
+    UPLOAD_PART_SIZE = 512 * 1024
+    MAX_UPLOAD_PARTS = 4000
+    MAX_MULTIPART_BYTES = 2_000_000_000
+
     def __init__(self, settings: Settings):
         self.settings = settings
         self.client: Optional[TelegramClient] = None
@@ -79,41 +83,109 @@ class TelethonClientManager:
                 print(f"[telethon-core] Auto-reconnect failed: {e}")
         return False
 
+    async def upload_big_file_part(self, telegram_file_id: int, index: int, total_parts: int, data: bytes) -> bool:
+        """Upload one idempotently-addressed MTProto big-file part; keeps bytes only in memory."""
+        if not await self.is_healthy():
+            raise RuntimeError("Telethon client is not connected")
+        if not -(2**63) <= telegram_file_id < 2**63:
+            raise ValueError("Telegram multipart file ID is out of range")
+        max_parts_for_size = (self.MAX_MULTIPART_BYTES + self.UPLOAD_PART_SIZE - 1) // self.UPLOAD_PART_SIZE
+        if total_parts <= 0 or total_parts > min(self.MAX_UPLOAD_PARTS, max_parts_for_size):
+            raise ValueError("Multipart upload part count is out of supported range")
+        if index < 0 or index >= total_parts:
+            raise ValueError("Multipart upload part index is out of range")
+        expected_max = self.UPLOAD_PART_SIZE
+        if not data or len(data) > expected_max or (index < total_parts - 1 and len(data) != expected_max):
+            raise ValueError("Multipart upload part has invalid size")
+        async with self._semaphore:
+            return bool(await self.client(functions.upload.SaveBigFilePartRequest(
+                file_id=telegram_file_id,
+                file_part=index,
+                file_total_parts=total_parts,
+                bytes=data,
+            )))
+
+    async def finalize_big_file(self, telegram_file_id: int, total_parts: int, filename: str, mime_type: str, caption: str) -> dict:
+        if not await self.is_healthy():
+            raise RuntimeError("Telethon client is not connected")
+        if not -(2**63) <= telegram_file_id < 2**63:
+            raise ValueError("Telegram multipart file ID is out of range")
+        max_parts_for_size = (self.MAX_MULTIPART_BYTES + self.UPLOAD_PART_SIZE - 1) // self.UPLOAD_PART_SIZE
+        if total_parts <= 0 or total_parts > min(self.MAX_UPLOAD_PARTS, max_parts_for_size):
+            raise ValueError("Multipart upload part count is out of supported range")
+        if not filename or len(filename) > 255 or not mime_type or len(mime_type) > 120 or len(caption) > 64:
+            raise ValueError("invalid multipart finalization metadata")
+        async with self._semaphore:
+            if not self.chat_entity and self.settings.storage_chat_id:
+                self.chat_entity = await self.client.get_entity(self.settings.storage_chat_id)
+            target = self.chat_entity or self.settings.storage_chat_id
+            if caption:
+                async for existing in self.client.iter_messages(target, search=caption, limit=10):
+                    if existing.message == caption and existing.document:
+                        doc: Optional[Document] = existing.document
+                        return {"message_id": existing.id, "document_id": str(doc.id), "chat_id": self.settings.storage_chat_id}
+            uploaded = types.InputFileBig(telegram_file_id, total_parts, filename)
+            msg: Message = await self.client.send_file(
+                entity=target,
+                file=uploaded,
+                caption=caption or f"📦 {filename}",
+                force_document=True,
+                mime_type=mime_type,
+            )
+            doc: Optional[Document] = msg.document
+            return {
+                "message_id": msg.id,
+                "document_id": str(doc.id) if doc else "",
+                "chat_id": self.settings.storage_chat_id,
+            }
+
     async def upload_stream(self, reader: AsyncStreamReader, filename: str, mime_type: str, caption: str) -> dict:
         if not await self.is_healthy():
             raise RuntimeError("Telethon client is not connected")
 
         async with self._semaphore:
-            uploaded_file = await self.client.upload_file(
-                file=reader,
-                file_name=filename,
-                file_size=reader.total_size,
-            )
+            uploaded_file = None
+            message_sent = False
+            try:
+                uploaded_file = await self.client.upload_file(
+                    file=reader,
+                    file_name=filename,
+                    file_size=reader.total_size,
+                )
+                await reader.finish()
 
-            if not self.chat_entity and self.settings.storage_chat_id:
-                try:
-                    self.chat_entity = await self.client.get_entity(self.settings.storage_chat_id)
-                except Exception:
-                    pass
+                if not self.chat_entity and self.settings.storage_chat_id:
+                    try:
+                        self.chat_entity = await self.client.get_entity(self.settings.storage_chat_id)
+                    except Exception:
+                        pass
 
-            target = self.chat_entity or self.settings.storage_chat_id
-            msg: Message = await self.client.send_file(
-                entity=target,
-                file=uploaded_file,
-                caption=caption or f"📦 {filename}",
-                force_document=True,
-            )
+                target = self.chat_entity or self.settings.storage_chat_id
+                msg: Message = await self.client.send_file(
+                    entity=target,
+                    file=uploaded_file,
+                    caption=caption or f"📦 {filename}",
+                    force_document=True,
+                )
+                message_sent = True
 
-            doc: Optional[Document] = msg.document
-            document_id = str(doc.id) if doc else ""
+                doc: Optional[Document] = msg.document
+                document_id = str(doc.id) if doc else ""
 
-            return {
-                "message_id": msg.id,
-                "document_id": document_id,
-                "size": reader.tell(),
-                "checksum": reader.get_sha256(),
-                "chat_id": self.settings.storage_chat_id,
-            }
+                return {
+                    "message_id": msg.id,
+                    "document_id": document_id,
+                    "size": reader.tell(),
+                    "checksum": reader.get_sha256(),
+                    "chat_id": self.settings.storage_chat_id,
+                }
+            except Exception:
+                if uploaded_file is not None and not message_sent:
+                    try:
+                        await self.client.delete_file(uploaded_file)
+                    except Exception:
+                        pass
+                raise
 
     async def iter_download(self, message_id: int, offset: int = 0, limit: Optional[int] = None) -> AsyncGenerator[bytes, None]:
         if not await self.is_healthy():
